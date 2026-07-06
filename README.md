@@ -1,47 +1,41 @@
-
-## Project: Employee Management System
-
-### Technologies
-
-* **Operating System:** Amazon Linux 2023
-* **Backend:** Node.js + Express
-* **Database:** PostgreSQL (Amazon RDS)
-* **Frontend:** HTML, CSS, JavaScript, EJS
+If your goal is to **deploy a Node.js + PostgreSQL application on Amazon Linux using Amazon RDS**, follow this end-to-end process.
 
 ---
 
-## Project Structure
+# Architecture
 
 ```text
-employee-management/
-│── server.js
-│── db.js
-│── package.json
-│── .env
-│── public/
-│   ├── style.css
-│── views/
-│   ├── index.ejs
-│   ├── add.ejs
-│── routes/
-│   ├── employees.js
+                Internet
+                    │
+                    ▼
+          Amazon EC2 (Amazon Linux 2023)
+         Node.js + Express Application
+                    │
+          Port 3000 (or Nginx on Port 80)
+                    │
+                    ▼
+         Amazon RDS PostgreSQL (Port 5432)
 ```
 
 ---
 
-# Step 1: Launch an Amazon Linux EC2 Instance
+# Step 1: Launch an EC2 Instance
 
-* Amazon Linux 2023
-* Allow ports:
+* AMI: Amazon Linux 2023
+* Instance type: t2.micro or t3.micro (Free Tier if eligible)
 
-  * SSH (22)
-  * HTTP (80)
-  * Custom TCP (3000)
+### Security Group
+
+| Type       | Port | Source                  |
+| ---------- | ---- | ----------------------- |
+| SSH        | 22   | Your IP                 |
+| HTTP       | 80   | 0.0.0.0/0               |
+| Custom TCP | 3000 | 0.0.0.0/0 (for testing) |
 
 Connect:
 
 ```bash
-ssh -i your-key.pem ec2-user@YOUR-EC2-IP
+ssh -i your-key.pem ec2-user@YOUR_PUBLIC_IP
 ```
 
 ---
@@ -50,6 +44,7 @@ ssh -i your-key.pem ec2-user@YOUR-EC2-IP
 
 ```bash
 sudo dnf update -y
+
 sudo dnf install nodejs git -y
 ```
 
@@ -62,100 +57,71 @@ npm -v
 
 ---
 
-# Step 3: Create Project
+# Step 3: Clone Your GitHub Repository
+
+Replace with your repository URL:
 
 ```bash
-mkdir employee-management
+git clone https://github.com/harshikanandpatil/employee-management.git
+
 cd employee-management
-
-npm init -y
 ```
 
-Install packages:
+---
+
+# Step 4: Install Dependencies
 
 ```bash
-npm install express pg dotenv ejs
+npm install
 ```
 
 ---
 
-# Step 4: Create `.env`
+# Step 5: Create an Amazon RDS PostgreSQL Database
 
-```env
-DB_HOST=your-rds-endpoint.amazonaws.com
-DB_USER=postgres
-DB_PASSWORD=YourPassword
-DB_NAME=employees
-DB_PORT=5432
-```
+In the AWS Console:
 
----
+* Open **RDS**
+* Create a **PostgreSQL** database
+* Public access: **Yes** (for learning/demo)
+* Save:
 
-# Step 5: Database Connection (`db.js`)
-
-```javascript
-require("dotenv").config();
-
-const { Pool } = require("pg");
-
-const pool = new Pool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
-
-module.exports = pool;
-```
+  * Endpoint
+  * Username
+  * Password
 
 ---
 
-# Step 6: Server (`server.js`)
+# Step 6: Configure RDS Security Group
 
-```javascript
-const express = require("express");
-const db = require("./db");
+Allow inbound traffic:
 
-const app = express();
+| Type       | Port | Source             |
+| ---------- | ---- | ------------------ |
+| PostgreSQL | 5432 | EC2 Security Group |
 
-app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public"));
-
-app.get("/", async (req, res) => {
-    const result = await db.query("SELECT * FROM employees ORDER BY id");
-    res.render("index", { employees: result.rows });
-});
-
-app.get("/add", (req, res) => {
-    res.render("add");
-});
-
-app.post("/add", async (req, res) => {
-    const { name, department, salary } = req.body;
-
-    await db.query(
-        "INSERT INTO employees(name, department, salary) VALUES($1,$2,$3)",
-        [name, department, salary]
-    );
-
-    res.redirect("/");
-});
-
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
-});
-```
+This is more secure than opening access to the internet.
 
 ---
 
-# Step 7: PostgreSQL Table
+# Step 7: Create the Database
 
-Connect to your RDS instance using `psql` and run:
+Install the PostgreSQL client:
+
+```bash
+sudo dnf install postgresql15 -y
+```
+
+Connect:
+
+```bash
+psql \
+-h YOUR_RDS_ENDPOINT \
+-U postgres \
+-d postgres
+```
+
+Create the database and table:
 
 ```sql
 CREATE DATABASE employees;
@@ -163,160 +129,125 @@ CREATE DATABASE employees;
 \c employees
 
 CREATE TABLE employees(
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    department VARCHAR(100),
-    salary INT
+id SERIAL PRIMARY KEY,
+name VARCHAR(100),
+department VARCHAR(100),
+salary INT
 );
 ```
 
 ---
 
-# Step 8: `views/index.ejs`
+# Step 8: Create the `.env` File
 
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Employee Management</title>
-    <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-
-<h1>Employee Management System</h1>
-
-<a href="/add">Add Employee</a>
-
-<table border="1">
-
-<tr>
-<th>ID</th>
-<th>Name</th>
-<th>Department</th>
-<th>Salary</th>
-</tr>
-
-<% employees.forEach(emp=>{ %>
-
-<tr>
-<td><%= emp.id %></td>
-<td><%= emp.name %></td>
-<td><%= emp.department %></td>
-<td><%= emp.salary %></td>
-</tr>
-
-<% }) %>
-
-</table>
-
-</body>
-</html>
+```env
+DB_HOST=YOUR_RDS_ENDPOINT
+DB_USER=postgres
+DB_PASSWORD=YOUR_PASSWORD
+DB_NAME=employees
+DB_PORT=5432
 ```
 
 ---
 
-# Step 9: `views/add.ejs`
-
-```html
-<!DOCTYPE html>
-<html>
-
-<head>
-<title>Add Employee</title>
-</head>
-
-<body>
-
-<h2>Add Employee</h2>
-
-<form method="POST" action="/add">
-
-<input type="text" name="name" placeholder="Employee Name" required>
-
-<input type="text" name="department" placeholder="Department" required>
-
-<input type="number" name="salary" placeholder="Salary" required>
-
-<button>Add Employee</button>
-
-</form>
-
-</body>
-
-</html>
-```
-
----
-
-# Step 10: `public/style.css`
-
-```css
-body{
-font-family:Arial;
-margin:40px;
-background:#f4f4f4;
-}
-
-table{
-width:80%;
-border-collapse:collapse;
-background:white;
-}
-
-th,td{
-padding:10px;
-text-align:center;
-}
-
-th{
-background:#0077cc;
-color:white;
-}
-
-a{
-padding:10px;
-background:green;
-color:white;
-text-decoration:none;
-}
-```
-
----
-
-# Step 11: Run the Application
+# Step 9: Start the Application
 
 ```bash
 node server.js
 ```
 
-Open in your browser:
+Visit:
 
 ```text
-http://YOUR-EC2-PUBLIC-IP:3000
+http://EC2_PUBLIC_IP:3000
 ```
+
+---
+
+# Step 10 (Recommended): Use PM2
+
+Install PM2:
+
+```bash
+sudo npm install -g pm2
+```
+
+Start your application:
+
+```bash
+pm2 start server.js --name employee-app
+```
+
+Save the PM2 process list:
+
+```bash
+pm2 save
+```
+
+Configure PM2 to start on boot:
+
+```bash
+pm2 startup
+```
+
+Run the command that PM2 outputs.
+
+---
+
+# Step 11 (Recommended): Configure Nginx
+
+Install Nginx:
+
+```bash
+sudo dnf install nginx -y
+
+sudo systemctl enable nginx
+sudo systemctl start nginx
+```
+
+Create a reverse proxy configuration so users can access the app via port **80** instead of **3000**.
+
+---
+
+# Step 12: Test
+
+Open:
+
+```text
+http://YOUR_EC2_PUBLIC_IP
+```
+
+You should see your Employee Management application.
 
 ---
 
 ## AWS Services Used
 
-* Amazon EC2 (Amazon Linux)
+* Amazon EC2 (Amazon Linux 2023)
 * Amazon RDS for PostgreSQL
 * Security Groups
 * IAM (optional)
-* GitHub (for source control)
+* GitHub
+* Nginx
+* PM2
 
-## Possible Enhancements
+---
 
-You can make this project stand out by adding:
+### Recommended Project Structure
 
-* User authentication (login/logout)
-* Edit and delete employee records
-* Employee profile photos (stored in Amazon S3)
-* File upload support
-* Search and filter functionality
-* Pagination
-* Deployment behind a reverse proxy such as Nginx
-* HTTPS with a TLS certificate
-* CI/CD using GitHub Actions
+```text
+employee-management/
+├── server.js
+├── db.js
+├── package.json
+├── .env
+├── public/
+│   ├── style.css
+│   └── script.js
+├── views/
+│   ├── index.ejs
+│   └── add.ejs
+└── README.md
+```
 
-This project is suitable for showcasing your skills in Node.js, PostgreSQL, and AWS deployment.
+This deployment demonstrates practical AWS skills, including EC2 provisioning, RDS integration, GitHub-based deployment, Node.js application hosting, and production process management with PM2.
