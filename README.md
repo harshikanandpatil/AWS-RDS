@@ -1,253 +1,194 @@
-If your goal is to **deploy a Node.js + PostgreSQL application on Amazon Linux using Amazon RDS**, follow this end-to-end process.
 
----
+# Project Overview
 
-# Architecture
+We'll build an **Employee Management System** using:
 
-```text
-                Internet
-                    │
-                    ▼
-          Amazon EC2 (Amazon Linux 2023)
-         Node.js + Express Application
-                    │
-          Port 3000 (or Nginx on Port 80)
-                    │
-                    ▼
-         Amazon RDS PostgreSQL (Port 5432)
-```
+* Amazon Linux 2023
+* Python Flask
+* Amazon RDS PostgreSQL
+* Gunicorn
+* Nginx
+* GitHub
+* AWS EC2
 
 ---
 
 # Step 1: Launch an EC2 Instance
 
-* AMI: Amazon Linux 2023
-* Instance type: t2.micro or t3.micro (Free Tier if eligible)
+1. Sign in to the AWS Console.
+2. Go to **EC2**.
+3. Click **Launch Instance**.
+4. Configure:
 
-### Security Group
+   * **Name:** `postgresql-app`
+   * **AMI:** Amazon Linux 2023
+   * **Instance type:** `t2.micro` (or `t3.micro`)
+   * Create or select a key pair.
+5. Create a security group allowing:
 
-| Type       | Port | Source                  |
-| ---------- | ---- | ----------------------- |
-| SSH        | 22   | Your IP                 |
-| HTTP       | 80   | 0.0.0.0/0               |
-| Custom TCP | 3000 | 0.0.0.0/0 (for testing) |
+   * SSH (22) from your IP
+   * HTTP (80) from anywhere
+   * HTTPS (443) from anywhere (optional)
+6. Launch the instance.
 
-Connect:
+---
+
+# Step 2: Connect to EC2
 
 ```bash
-ssh -i your-key.pem ec2-user@YOUR_PUBLIC_IP
+ssh -i your-key.pem ec2-user@<EC2_PUBLIC_IP>
 ```
 
 ---
 
-# Step 2: Install Node.js
+# Step 3: Update the Server
 
 ```bash
 sudo dnf update -y
-
-sudo dnf install nodejs git -y
 ```
 
-Verify:
+---
+
+# Step 4: Install Required Software
 
 ```bash
-node -v
-npm -v
+sudo dnf install git python3 python3-pip postgresql15 nginx -y
 ```
 
----
-
-# Step 3: Clone Your GitHub Repository
-
-Replace with your repository URL:
+Check the versions:
 
 ```bash
-git clone https://github.com/harshikanandpatil/employee-management.git
-
-cd employee-management
+python3 --version
+pip3 --version
+psql --version
+nginx -v
 ```
 
 ---
 
-# Step 4: Install Dependencies
+# Step 5: Create the Project Directory
 
 ```bash
-npm install
+mkdir postgresql-app
+cd postgresql-app
 ```
 
 ---
 
-# Step 5: Create an Amazon RDS PostgreSQL Database
-
-In the AWS Console:
-
-* Open **RDS**
-* Create a **PostgreSQL** database
-* Public access: **Yes** (for learning/demo)
-* Save:
-
-  * Endpoint
-  * Username
-  * Password
-
----
-
-# Step 6: Configure RDS Security Group
-
-Allow inbound traffic:
-
-| Type       | Port | Source             |
-| ---------- | ---- | ------------------ |
-| PostgreSQL | 5432 | EC2 Security Group |
-
-This is more secure than opening access to the internet.
-
----
-
-# Step 7: Create the Database
-
-Install the PostgreSQL client:
+# Step 6: Create a Virtual Environment
 
 ```bash
-sudo dnf install postgresql15 -y
+python3 -m venv venv
 ```
 
-Connect:
+Activate it:
 
 ```bash
-psql \
--h YOUR_RDS_ENDPOINT \
--U postgres \
--d postgres
-```
-
-Create the database and table:
-
-```sql
-CREATE DATABASE employees;
-
-\c employees
-
-CREATE TABLE employees(
-id SERIAL PRIMARY KEY,
-name VARCHAR(100),
-department VARCHAR(100),
-salary INT
-);
+source venv/bin/activate
 ```
 
 ---
 
-# Step 8: Create the `.env` File
+# Step 7: Install Python Packages
 
-```env
-DB_HOST=YOUR_RDS_ENDPOINT
-DB_USER=postgres
-DB_PASSWORD=YOUR_PASSWORD
-DB_NAME=employees
-DB_PORT=5432
+```bash
+pip install flask psycopg2-binary gunicorn python-dotenv
+```
+
+Save dependencies:
+
+```bash
+pip freeze > requirements.txt
 ```
 
 ---
 
-# Step 9: Start the Application
+# Step 8: Create an Amazon RDS PostgreSQL Database
+
+Create a PostgreSQL instance in Amazon RDS.
+
+Use:
+
+* Engine: PostgreSQL
+* DB name: `employee_db`
+* Username: `postgres`
+* Choose a password
+* Make it reachable from your EC2 instance (configure security groups accordingly)
+
+---
+
+# Step 9: Connect to PostgreSQL
 
 ```bash
-node server.js
+psql -h <RDS_ENDPOINT> -U postgres -d postgres
+```
+
+Create your application database and tables.
+
+---
+
+# Step 10: Build the Flask Application
+
+Create:
+
+* `app.py`
+* `database.py`
+* `.env`
+* `templates/`
+* `static/`
+
+We'll write all of these from scratch.
+
+---
+
+# Step 11: Run the App
+
+```bash
+python3 app.py
 ```
 
 Visit:
 
 ```text
-http://EC2_PUBLIC_IP:3000
+http://<EC2_PUBLIC_IP>:5000
 ```
 
 ---
 
-# Step 10 (Recommended): Use PM2
-
-Install PM2:
+# Step 12: Deploy with Gunicorn
 
 ```bash
-sudo npm install -g pm2
+gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ```
-
-Start your application:
-
-```bash
-pm2 start server.js --name employee-app
-```
-
-Save the PM2 process list:
-
-```bash
-pm2 save
-```
-
-Configure PM2 to start on boot:
-
-```bash
-pm2 startup
-```
-
-Run the command that PM2 outputs.
 
 ---
 
-# Step 11 (Recommended): Configure Nginx
+# Step 13: Configure Nginx
 
-Install Nginx:
+Create a reverse proxy so users access the app on port 80 instead of the Flask development server.
 
-```bash
-sudo dnf install nginx -y
-
-sudo systemctl enable nginx
-sudo systemctl start nginx
-```
-
-Create a reverse proxy configuration so users can access the app via port **80** instead of **3000**.
+Restart Nginx after adding the configuration.
 
 ---
 
-# Step 12: Test
+# Step 14: Verify
 
 Open:
 
 ```text
-http://YOUR_EC2_PUBLIC_IP
+http://<EC2_PUBLIC_IP>
 ```
 
-You should see your Employee Management application.
+You should see the application running.
 
 ---
 
-## AWS Services Used
+## I recommend we build this as a **10-part hands-on project**. In each part, I'll provide:
 
-* Amazon EC2 (Amazon Linux 2023)
-* Amazon RDS for PostgreSQL
-* Security Groups
-* IAM (optional)
-* GitHub
-* Nginx
-* PM2
+* Commands to run
+* File contents
+* Explanation of what each step does
+* Expected output
+* Troubleshooting tips
 
----
-
-### Recommended Project Structure
-
-```text
-employee-management/
-├── server.js
-├── db.js
-├── package.json
-├── .env
-├── public/
-│   ├── style.css
-│   └── script.js
-├── views/
-│   ├── index.ejs
-│   └── add.ejs
-└── README.md
-```
-
-This deployment demonstrates practical AWS skills, including EC2 provisioning, RDS integration, GitHub-based deployment, Node.js application hosting, and production process management with PM2.
+By the end, you'll have an original PostgreSQL + Flask application deployed on AWS that demonstrates the same concepts without copying another repository.
