@@ -1,5 +1,9 @@
-Project: Smart Library Management System
-Architecture
+
+# Project: Smart Library Management System
+
+### Architecture
+
+```text
                  Internet
                      │
                      ▼
@@ -11,15 +15,23 @@ Architecture
                      │
                      ▼
             CloudWatch Logs & Metrics
-Features
-📚 Book management
-👤 Student registration
-📖 Borrow and return books
-🔍 Search books
-📊 Dashboard
-📅 Borrow history
-⭐ Responsive UI
-Folder Structure
+```
+
+## Features
+
+* 📚 Book management
+* 👤 Student registration
+* 📖 Borrow and return books
+* 🔍 Search books
+* 📊 Dashboard
+* 📅 Borrow history
+* ⭐ Responsive UI
+
+---
+
+# Folder Structure
+
+```text
 library-app/
 │
 ├── server.js
@@ -38,29 +50,52 @@ library-app/
 │
 └── sql/
       └── schema.sql
-Install on Amazon Linux
+```
+
+---
+
+# Install on Amazon Linux
 
 Update the system:
 
+```bash
 sudo dnf update -y
+```
 
 Install Node.js:
 
+```bash
 sudo dnf install nodejs git -y
+```
 
 Verify:
 
+```bash
 node -v
 npm -v
-Create the Project
+```
+
+---
+
+# Create the Project
+
+```bash
 mkdir library-app
 cd library-app
 npm init -y
+```
 
 Install packages:
 
+```bash
 npm install express pg ejs dotenv
-Database Connection (db.js)
+```
+
+---
+
+# Database Connection (`db.js`)
+
+```javascript
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -75,7 +110,13 @@ const pool = new Pool({
 });
 
 module.exports = pool;
-Server (server.js)
+```
+
+---
+
+# Server (`server.js`)
+
+```javascript
 const express = require("express");
 const pool = require("./db");
 
@@ -97,7 +138,13 @@ app.get("/", async (req, res) => {
 app.listen(3000, () => {
     console.log("Running...");
 });
-Database Schema
+```
+
+---
+
+# Database Schema
+
+```sql
 CREATE TABLE books (
 
 id SERIAL PRIMARY KEY,
@@ -135,24 +182,52 @@ borrow_date DATE,
 return_date DATE
 
 );
-Environment File
+```
+
+---
+
+# Environment File
+
+```text
 DB_HOST=your-rds-endpoint
 DB_USER=postgres
 DB_PASSWORD=password
 DB_NAME=library
-Start the Application
+```
+
+---
+
+# Start the Application
+
+```bash
 node server.js
+```
 
 Open:
 
+```text
 http://EC2-Public-IP:3000
-AWS Services Used
-Amazon EC2 (Amazon Linux)
-Amazon RDS for PostgreSQL
-IAM Role (optional for secure AWS access)
-Security Groups
-Amazon CloudWatch
-GitHub for source control
+```
 
+---
+
+# AWS Services Used
+
+* Amazon EC2 (Amazon Linux)
+* Amazon RDS for PostgreSQL
+* IAM Role (optional for secure AWS access)
+* Security Groups
+* Amazon CloudWatch
+* GitHub for source control
+
+---
+
+# Resume Highlights
+
+* Built a full-stack Library Management System using Node.js, Express, and PostgreSQL.
+* Deployed the application on Amazon EC2 (Amazon Linux).
+* Integrated Amazon RDS PostgreSQL as the backend database.
+* Configured security groups, networking, and database connectivity.
+* Implemented CRUD operations for books, students, and borrowing records.
 
 This project is more distinctive than a simple "visitor counter" or "student management" app and demonstrates practical cloud deployment, database integration, and full-stack development.
