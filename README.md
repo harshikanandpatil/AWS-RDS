@@ -1,70 +1,55 @@
 
-# Project: Smart Library Management System
+## Project: Employee Management System
 
-### Architecture
+### Technologies
 
-```text
-                 Internet
-                     │
-                     ▼
-              Amazon EC2 (Amazon Linux)
-          Node.js + Express Application
-                     │
-                     ▼
-          Amazon RDS PostgreSQL Database
-                     │
-                     ▼
-            CloudWatch Logs & Metrics
-```
-
-## Features
-
-* 📚 Book management
-* 👤 Student registration
-* 📖 Borrow and return books
-* 🔍 Search books
-* 📊 Dashboard
-* 📅 Borrow history
-* ⭐ Responsive UI
+* **Operating System:** Amazon Linux 2023
+* **Backend:** Node.js + Express
+* **Database:** PostgreSQL (Amazon RDS)
+* **Frontend:** HTML, CSS, JavaScript, EJS
 
 ---
 
-# Folder Structure
+## Project Structure
 
 ```text
-library-app/
-│
-├── server.js
-├── package.json
-├── db.js
-├── public/
-│     ├── css/
-│     ├── js/
-│     └── images/
-│
-├── views/
-│     ├── index.ejs
-│     ├── books.ejs
-│     ├── users.ejs
-│     └── borrow.ejs
-│
-└── sql/
-      └── schema.sql
+employee-management/
+│── server.js
+│── db.js
+│── package.json
+│── .env
+│── public/
+│   ├── style.css
+│── views/
+│   ├── index.ejs
+│   ├── add.ejs
+│── routes/
+│   ├── employees.js
 ```
 
 ---
 
-# Install on Amazon Linux
+# Step 1: Launch an Amazon Linux EC2 Instance
 
-Update the system:
+* Amazon Linux 2023
+* Allow ports:
+
+  * SSH (22)
+  * HTTP (80)
+  * Custom TCP (3000)
+
+Connect:
+
+```bash
+ssh -i your-key.pem ec2-user@YOUR-EC2-IP
+```
+
+---
+
+# Step 2: Install Node.js
 
 ```bash
 sudo dnf update -y
-```
-
-Install Node.js:
-
-```bash
 sudo dnf install nodejs git -y
 ```
 
@@ -77,25 +62,40 @@ npm -v
 
 ---
 
-# Create the Project
+# Step 3: Create Project
 
 ```bash
-mkdir library-app
-cd library-app
+mkdir employee-management
+cd employee-management
+
 npm init -y
 ```
 
 Install packages:
 
 ```bash
-npm install express pg ejs dotenv
+npm install express pg dotenv ejs
 ```
 
 ---
 
-# Database Connection (`db.js`)
+# Step 4: Create `.env`
+
+```env
+DB_HOST=your-rds-endpoint.amazonaws.com
+DB_USER=postgres
+DB_PASSWORD=YourPassword
+DB_NAME=employees
+DB_PORT=5432
+```
+
+---
+
+# Step 5: Database Connection (`db.js`)
 
 ```javascript
+require("dotenv").config();
+
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -103,7 +103,7 @@ const pool = new Pool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: 5432,
+    port: process.env.DB_PORT,
     ssl: {
         rejectUnauthorized: false
     }
@@ -114,120 +114,209 @@ module.exports = pool;
 
 ---
 
-# Server (`server.js`)
+# Step 6: Server (`server.js`)
 
 ```javascript
 const express = require("express");
-const pool = require("./db");
+const db = require("./db");
 
 const app = express();
 
 app.set("view engine", "ejs");
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 app.get("/", async (req, res) => {
+    const result = await db.query("SELECT * FROM employees ORDER BY id");
+    res.render("index", { employees: result.rows });
+});
 
-    const books = await pool.query("SELECT * FROM books");
+app.get("/add", (req, res) => {
+    res.render("add");
+});
 
-    res.render("index", {
-        books: books.rows
-    });
+app.post("/add", async (req, res) => {
+    const { name, department, salary } = req.body;
 
+    await db.query(
+        "INSERT INTO employees(name, department, salary) VALUES($1,$2,$3)",
+        [name, department, salary]
+    );
+
+    res.redirect("/");
 });
 
 app.listen(3000, () => {
-    console.log("Running...");
+    console.log("Server running on port 3000");
 });
 ```
 
 ---
 
-# Database Schema
+# Step 7: PostgreSQL Table
+
+Connect to your RDS instance using `psql` and run:
 
 ```sql
-CREATE TABLE books (
+CREATE DATABASE employees;
 
-id SERIAL PRIMARY KEY,
+\c employees
 
-title VARCHAR(100),
-
-author VARCHAR(100),
-
-category VARCHAR(50),
-
-available BOOLEAN DEFAULT TRUE
-
-);
-
-CREATE TABLE students(
-
-id SERIAL PRIMARY KEY,
-
-name VARCHAR(100),
-
-email VARCHAR(100)
-
-);
-
-CREATE TABLE borrow(
-
-id SERIAL PRIMARY KEY,
-
-student_id INT REFERENCES students(id),
-
-book_id INT REFERENCES books(id),
-
-borrow_date DATE,
-
-return_date DATE
-
+CREATE TABLE employees(
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    department VARCHAR(100),
+    salary INT
 );
 ```
 
 ---
 
-# Environment File
+# Step 8: `views/index.ejs`
 
-```text
-DB_HOST=your-rds-endpoint
-DB_USER=postgres
-DB_PASSWORD=password
-DB_NAME=library
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee Management</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<h1>Employee Management System</h1>
+
+<a href="/add">Add Employee</a>
+
+<table border="1">
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Department</th>
+<th>Salary</th>
+</tr>
+
+<% employees.forEach(emp=>{ %>
+
+<tr>
+<td><%= emp.id %></td>
+<td><%= emp.name %></td>
+<td><%= emp.department %></td>
+<td><%= emp.salary %></td>
+</tr>
+
+<% }) %>
+
+</table>
+
+</body>
+</html>
 ```
 
 ---
 
-# Start the Application
+# Step 9: `views/add.ejs`
+
+```html
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Add Employee</title>
+</head>
+
+<body>
+
+<h2>Add Employee</h2>
+
+<form method="POST" action="/add">
+
+<input type="text" name="name" placeholder="Employee Name" required>
+
+<input type="text" name="department" placeholder="Department" required>
+
+<input type="number" name="salary" placeholder="Salary" required>
+
+<button>Add Employee</button>
+
+</form>
+
+</body>
+
+</html>
+```
+
+---
+
+# Step 10: `public/style.css`
+
+```css
+body{
+font-family:Arial;
+margin:40px;
+background:#f4f4f4;
+}
+
+table{
+width:80%;
+border-collapse:collapse;
+background:white;
+}
+
+th,td{
+padding:10px;
+text-align:center;
+}
+
+th{
+background:#0077cc;
+color:white;
+}
+
+a{
+padding:10px;
+background:green;
+color:white;
+text-decoration:none;
+}
+```
+
+---
+
+# Step 11: Run the Application
 
 ```bash
 node server.js
 ```
 
-Open:
+Open in your browser:
 
 ```text
-http://EC2-Public-IP:3000
+http://YOUR-EC2-PUBLIC-IP:3000
 ```
 
 ---
 
-# AWS Services Used
+## AWS Services Used
 
 * Amazon EC2 (Amazon Linux)
 * Amazon RDS for PostgreSQL
-* IAM Role (optional for secure AWS access)
 * Security Groups
-* Amazon CloudWatch
-* GitHub for source control
+* IAM (optional)
+* GitHub (for source control)
 
----
+## Possible Enhancements
 
-# Resume Highlights
+You can make this project stand out by adding:
 
-* Built a full-stack Library Management System using Node.js, Express, and PostgreSQL.
-* Deployed the application on Amazon EC2 (Amazon Linux).
-* Integrated Amazon RDS PostgreSQL as the backend database.
-* Configured security groups, networking, and database connectivity.
-* Implemented CRUD operations for books, students, and borrowing records.
+* User authentication (login/logout)
+* Edit and delete employee records
+* Employee profile photos (stored in Amazon S3)
+* File upload support
+* Search and filter functionality
+* Pagination
+* Deployment behind a reverse proxy such as Nginx
+* HTTPS with a TLS certificate
+* CI/CD using GitHub Actions
 
-This project is more distinctive than a simple "visitor counter" or "student management" app and demonstrates practical cloud deployment, database integration, and full-stack development.
+This project is suitable for showcasing your skills in Node.js, PostgreSQL, and AWS deployment.
